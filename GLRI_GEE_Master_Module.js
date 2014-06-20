@@ -70,7 +70,7 @@ var sensorDarkThresholdsDict ={L8 : [0.3,0.1,0.18],
   
 var STD_NAMES = ['blue', 'green', 'red', 'nir', 'swir1', 'temp','swir2'];
 
-var years = [1985,1990, 1995,2000,2005,2010];//,1995,2000,2005,2010,2013];
+var years = [1990];//,1990, 1995,2000,2005,2010];//,1995,2000,2005,2010,2013];
 var start_julian = 190;
 var end_julian = 258;
 
@@ -358,14 +358,14 @@ years.map(image_getter);
 //Cast the list to an image collection
 var all_bands = ee.ImageCollection(all_bands_list);//.select(range(0,years.length),years.map(stringify));
 //print(all_bands2.getInfo());
-addToMap(all_bands.reduce(ee.Reducer.mean()),{'max': 0.8, 'gamma':1,'bands':'swir2_mean,nir_mean,red_mean'}, 'all_bands', false);
+//addToMap(all_bands.reduce(ee.Reducer.mean()),{'max': 0.8, 'gamma':1,'bands':'swir2_mean,nir_mean,red_mean'}, 'all_bands', false);
 
 
 
 var trends=all_bands.map(function (image) {
   return image.select(['nir'])}).formaTrend().select('long-trend');//.mask(hansen_image_masked);//.clip(fc);
 
-addToMap(trends.mask(trends.lt(-0.001)), {'max': 0, 'min': -0.02, 'palette': 'FF0000,FFFF00'},'trend',false);
+//addToMap(trends.mask(trends.lt(-0.001)), {'max': 0, 'min': -0.02, 'palette': 'FF0000,FFFF00'},'trend',false);
 
 
 
