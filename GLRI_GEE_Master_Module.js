@@ -45,8 +45,8 @@ var stringify = function(in_no){
                          L5: 'L5_L1T_TOA'};
                        
   var sensor_year_dict = {L8: range(2013,2020),
-                         L7: range(2009,2012),
-                         L5: range(1985, 2008)};
+                         L7: range(2009,2013),
+                         L5: range(1985, 2009)};
                          
   var shadowPop_sensor_year_dict = {L8: range(2013,2020),
                          L7: range(1999,2020),
@@ -66,8 +66,10 @@ var sensorIncompleteSumDict ={L8 : [1,2,3,4,5,6,7],
 var sensorDarkThresholdsDict ={L8 : [0.3,0.1,0.18],
                               L7 : [0.15,0.12,0.1],
                               L5 : [0.15,0.12,0.1]};
-  var possible_sensors = ['L8','L7','L5'];
-  
+                              
+var possible_sensors = ['L8','L7','L5'];
+var spacecraft_dict = {'Landsat5': 'L5','Landsat7': 'L7', 'LANDSAT_8': 'L8'}
+
 var STD_NAMES = ['blue', 'green', 'red', 'nir', 'swir1', 'temp','swir2'];
 
 var years = [1990];//,1990, 1995,2000,2005,2010];//,1995,2000,2005,2010,2013];
@@ -81,10 +83,14 @@ var shadowThresh = -1;
 var shadowPopulationYearLookBack = 3;
 var shadowPopulationYearLookForward = 5;
 
+//Buffering options for clouds masking
+//Likely only needed for single-image masking
 var bufferCS = false;
 var bufferCS_contract = 1;
 var bufferCS_expand = 3;
 
+//Decides whether shadow pop needs to be computed across a variable names years
+var run_multi_date = true;
 
 var flat_threshold = 0;
 ///////////////////////////////////////////////////////
@@ -101,6 +107,7 @@ var i = 0;
 //Only year is a required parameter
 
 var sensor_year_finder = function(year, syDict,return_list){
+  year = parseInt(year);
   var sensor = 'L5';
   var sensor_list = [];
   
@@ -169,7 +176,7 @@ var maskDark = function(image,sensor){
 /////////////////////////////////////////////////////
 var shadowPopulation = function(year)
   {
-    
+    print('Shadow popping', year);
     //Get bounding year window
     //if(typeof lookBackPeriod == 'undefined'){var lookBackPeriod = 3};
     var y1 = year - shadowPopulationYearLookBack;
@@ -228,13 +235,14 @@ var shadowPopulation = function(year)
 
 //Create array of shadow Populations
 //////////////////////////////////////////////////////////////////////////
+if(run_multi_date === true){
 var shadowYear1 = years.sort()[0]-shadowPopulationYearLookBack;
 var shadowYear2 = years.sort()[years.length-1];
 shadowYear2 = shadowYear2 + shadowPopulationYearLookForward;
 var yearArray = range(shadowYear1,shadowYear2);
 //Create array of shadowpopulations
 var shadowPopArray = yearArray.map(shadowPopulation);
-
+}
 
 //////////////////////////////////////////////////////////////////////////
 //Functions for cloud masking
@@ -260,9 +268,14 @@ var bust_clouds = function(image) {
 //Author: Carson Stam
 //Adapted by: Ian Housman
 //////////////////////////////////////////////////////////////////////////
-var shadowMasking = function(image, year)
+var shadowMasking = function(image, year, yearArray_local,shadowPopArray_local)
   {
     
+    if(typeof yearArray_local != undefined){var yearArray = yearArray_local};
+    if(typeof shadowPopArray_local != undefined){var shadowPopArray = shadowPopArray_local};
+    
+    print('yeararray',yearArray);
+    print('shadowpoparray',shadowPopArray);
     var sensor = sensor_year_finder(year);
     var yearIndex = yearArray.indexOf(year);
     
@@ -350,21 +363,49 @@ var image_getter = function(year){
   i = i +1;
 };
 
+var singleImageMasking = function(img){
+  
+  var info = img.getInfo().properties;
+  var year = parseInt(info.DATE_ACQUIRED.split("-",1)[0]);
+  var spacecraft = info.SPACECRAFT_ID;
+  var sensor = spacecraft_dict[spacecraft];
+  var collection_name = collection_dict[sensor];
+  var bands = sensor_band_dict[sensor];
+  
+  var shadowYear1 = year-shadowPopulationYearLookBack;
+  var shadowYear2 = year + shadowPopulationYearLookForward;
+  var yearArray = range(shadowYear1,shadowYear2);
+ 
+//Create array of shadowpopulations
+  var shadowPopArray = yearArray.map(shadowPopulation);
+  
+  print(sensor);
+  var maskedImage = shadowMasking(img,year,yearArray,shadowPopArray).select(bands,STD_NAMES);
+  print(maskedImage.getInfo());
+  //addToMap(maskedImage.select(bands));
 
+  
+  //addToMap(img.select([bands[6],bands[3],bands[2]]));
+  
+}
+//Single image example
+//var img = ee.Image('L7_L1T_TOA/LE70410262012187EDC00');
+//var img = ee.Image('LC8_L1T_TOA/LC80410262013197LGN00');
+var img = ee.Image('L5_L1T_TOA/LT50410262009266PAC01')
+//var sensor = 'L8';
+
+//singleImageMasking(img);
 
 //Map the image_getter function across all years to get 
 //an image collection containing composites
 years.map(image_getter);
 
 //Cast the list to an image collection
-var all_bands = ee.ImageCollection(all_bands_list);//.select(range(0,years.length),years.map(stringify));
-//print(all_bands2.getInfo());
-//addToMap(all_bands.reduce(ee.Reducer.mean()),{'max': 0.8, 'gamma':1,'bands':'swir2_mean,nir_mean,red_mean'}, 'all_bands', false);
+//var all_bands = ee.ImageCollection(all_bands_list);//.select(range(0,years.length),years.map(stringify));
 
 
-
-var trends=all_bands.map(function (image) {
-  return image.select(['nir'])}).formaTrend().select('long-trend');//.mask(hansen_image_masked);//.clip(fc);
+//var trends=all_bands.map(function (image) {
+//  return image.select(['nir'])}).formaTrend().select('long-trend');//.mask(hansen_image_masked);//.clip(fc);
 
 //addToMap(trends.mask(trends.lt(-0.001)), {'max': 0, 'min': -0.02, 'palette': 'FF0000,FFFF00'},'trend',false);
 
