@@ -169,7 +169,6 @@ var maskDark = function(image,sensor){
 /////////////////////////////////////////////////////
 var shadowPopulation = function(year)
   {
-    
     //Get bounding year window
     //if(typeof lookBackPeriod == 'undefined'){var lookBackPeriod = 3};
     var y1 = year - shadowPopulationYearLookBack;
